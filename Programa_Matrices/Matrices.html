@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Ecuaciones mediante Matriz Inversa</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background-color: aquamarine;
+        }
+        h1 {
+            color: #0f1d7f;
+        }
+        textarea {
+            width: 300px;
+            height: 100px;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #3138fc;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result, #determinantResult, #cofactorsResult, #adjointResult, #identityResult, #inverseResult {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+        .error {
+            color: red;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 10px 0;
+            background-color: white;
+        }
+        table, th, td {
+            border: 1px solid black;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h3>Axel Eduardo Amezcua Carrasco 2°G</h3>
+    <img src="descarga (1).png">
+    <h1>Resolver Sistema de Ecuaciones</h1>
+    <form id="equationForm">
+        <h2>Matriz de los Coeficientes</h2>
+        <textarea id="coefficients" placeholder="Ejemplo: [[2, 3, -1], [4, -1, 2], [1, 2, 3]]"></textarea>
+        <h2>Vector de los Términos Independientes</h2>
+        <textarea id="constants" placeholder="Ejemplo: [1, -2, 3]"></textarea>
+        <button type="submit">Resolver</button>
+    </form>
+    <h2>Resultados:</h2>
+    <div id="result"></div>
+    <div id="determinantResult"></div>
+    <div id="cofactorsResult"></div>
+    <div id="adjointResult"></div>
+    <div id="identityResult"></div>
+    <div id="inverseResult"></div>
+
+    <script>
+        // Función para formatear matrices como tablas HTML
+        function formatMatrixAsTable(matrix, decimalPlaces = 2) {
+            if (!matrix || !Array.isArray(matrix)) return 'Matriz no válida';
+
+            let table = '<table>';
+            matrix.forEach(row => {
+                table += '<tr>';
+                row.forEach(cell => {
+                    // Redondea el valor a "decimalPlaces" decimales
+                    const roundedValue = Math.round(cell * 10 ** decimalPlaces) / 10 ** decimalPlaces;
+                    table += `<td>${roundedValue}</td>`;
+                });
+                table += '</tr>';
+            });
+            table += '</table>';
+            return table;
+        }
+
+        // Función para formatear la matriz de identidad
+        function formatIdentityMatrix(identityMatrix) {
+            if (identityMatrix && identityMatrix.data) {
+                return formatMatrixAsTable(identityMatrix.data);
+            }
+            return 'No se pudo generar la matriz de identidad.';
+        }
+
+        document.getElementById('equationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const coefficientsInput = document.getElementById('coefficients').value;
+            const constantsInput = document.getElementById('constants').value;
+
+            try {
+                const coefficients = JSON.parse(coefficientsInput);
+                const constants = JSON.parse(constantsInput);
+
+                // Resolver sistema de ecuaciones
+                const response = await fetch('http://localhost:4000/api/solve-equations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ coefficients, constants }),
+                });
+                const data = await response.json();
+                const resultDiv = document.getElementById('result');
+                if (data.solution) {
+                    resultDiv.innerHTML = '<h3>Solución:</h3>';
+                    const solutionList = document.createElement('ul');
+                    data.solution.forEach((value, index) => {
+                        const listItem = document.createElement('li');
+                        listItem.innerText = `x${index + 1} = ${value.toFixed(2)}`;
+                        solutionList.appendChild(listItem);
+                    });
+                    resultDiv.appendChild(solutionList);
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                }
+
+                // Calcular determinante
+                const determinantResponse = await fetch('http://localhost:4000/api/determinant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ matrix: coefficients }),
+                });
+                const determinantData = await determinantResponse.json();
+                const determinantResultDiv = document.getElementById('determinantResult');
+                if (determinantData.determinant !== undefined) {
+                    determinantResultDiv.innerHTML = `<h3>Determinante:</h3><p>${determinantData.determinant}</p>`;
+                } else {
+                    determinantResultDiv.innerHTML = `<p class="error">Error: ${determinantData.error}</p>`;
+                }
+
+                // Calcular matriz de cofactores
+                const cofactorsResponse = await fetch('http://localhost:4000/api/cofactors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ matrix: coefficients }),
+                });
+                const cofactorsData = await cofactorsResponse.json();
+                const cofactorsResultDiv = document.getElementById('cofactorsResult');
+                if (cofactorsData.cofactors) {
+                    cofactorsResultDiv.innerHTML = `<h3>Matriz de Cofactores:</h3>${formatMatrixAsTable(cofactorsData.cofactors)}`;
+                } else {
+                    cofactorsResultDiv.innerHTML = `<p class="error">Error: ${cofactorsData.error}</p>`;
+                }
+
+                // Calcular matriz adjunta
+                const adjointResponse = await fetch('http://localhost:4000/api/adjoint', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ matrix: coefficients }),
+                });
+                const adjointData = await adjointResponse.json();
+                const adjointResultDiv = document.getElementById('adjointResult');
+                if (adjointData.adjoint) {
+                    adjointResultDiv.innerHTML = `<h3>Matriz Adjunta:</h3>${formatMatrixAsTable(adjointData.adjoint)}`;
+                } else {
+                    adjointResultDiv.innerHTML = `<p class="error">Error: ${adjointData.error}</p>`;
+                }
+
+                // Generar matriz de identidad
+                const identityResponse = await fetch('http://localhost:4000/api/identity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ size: coefficients.length }),
+                });
+                const identityData = await identityResponse.json();
+                const identityResultDiv = document.getElementById('identityResult');
+                if (identityData.identityMatrix) {
+                    identityResultDiv.innerHTML = `<h3>Matriz de Identidad:</h3>${formatIdentityMatrix(identityData.identityMatrix)}`;
+                } else {
+                    identityResultDiv.innerHTML = `<p class="error">Error: ${identityData.error}</p>`;
+                }
+
+                // Calcular matriz inversa
+                const inverseResponse = await fetch('http://localhost:4000/api/inverse', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ matrix: coefficients }),
+                });
+                const inverseData = await inverseResponse.json();
+                const inverseResultDiv = document.getElementById('inverseResult');
+                if (inverseData.inverse) {
+                    inverseResultDiv.innerHTML = `<h3>Matriz Inversa:</h3>${formatMatrixAsTable(inverseData.inverse)}`;
+                } else {
+                    inverseResultDiv.innerHTML = `<p class="error">Error: ${inverseData.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p class="error">Hubo un error al procesar la solicitud.</p>';
+            }
+        });
+    </script>
+</body>
+</html>
