@@ -45,11 +45,15 @@
             border: 1px solid black;
             padding: 5px;
         }
+        .loading {
+            color: #0f1d7f;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
     <h3>Axel Eduardo Amezcua Carrasco 2°G</h3>
-    <img src="descarga (1).png">
+    <img src="descarga (1).png" alt="Logo matemáticas">
     <h1>Resolver Sistema de Ecuaciones</h1>
     <form id="equationForm">
         <h2>Matriz de los Coeficientes</h2>
@@ -59,6 +63,7 @@
         <button type="submit">Resolver</button>
     </form>
     <h2>Resultados:</h2>
+    <div id="loading"></div>
     <div id="result"></div>
     <div id="determinantResult"></div>
     <div id="cofactorsResult"></div>
@@ -75,8 +80,10 @@
             matrix.forEach(row => {
                 table += '<tr>';
                 row.forEach(cell => {
-                    // Redondea el valor a "decimalPlaces" decimales
-                    const roundedValue = Math.round(cell * 10 ** decimalPlaces) / 10 ** decimalPlaces;
+                    // Redondea el valor a decimales
+                    const roundedValue = typeof cell === 'number' 
+                        ? Math.round(cell * 10 ** decimalPlaces) / 10 ** decimalPlaces
+                        : cell;
                     table += `<td>${roundedValue}</td>`;
                 });
                 table += '</tr>';
@@ -95,13 +102,29 @@
 
         document.getElementById('equationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // Limpiar resultados anteriores
+            document.querySelectorAll('#loading, #result, #determinantResult, #cofactorsResult, #adjointResult, #identityResult, #inverseResult')
+                .forEach(el => el.innerHTML = '');
 
-            const coefficientsInput = document.getElementById('coefficients').value;
-            const constantsInput = document.getElementById('constants').value;
+            const coefficientsInput = document.getElementById('coefficients').value.trim();
+            const constantsInput = document.getElementById('constants').value.trim();
 
             try {
+                // Validación básica
+                if (!coefficientsInput || !constantsInput) {
+                    throw new Error('Por favor ingresa ambos: matriz de coeficientes y vector de constantes.');
+                }
+
+                document.getElementById('loading').innerHTML = '<p class="loading">Procesando...</p>';
+                
                 const coefficients = JSON.parse(coefficientsInput);
                 const constants = JSON.parse(constantsInput);
+
+                // Validación de matrices
+                if (!Array.isArray(coefficients) || !Array.isArray(constants)) {
+                    throw new Error('Los datos deben ser matrices válidas.');
+                }
 
                 // Resolver sistema de ecuaciones
                 const response = await fetch('http://localhost:4000/api/solve-equations', {
@@ -111,8 +134,15 @@
                     },
                     body: JSON.stringify({ coefficients, constants }),
                 });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error en la solicitud');
+                }
+
                 const data = await response.json();
                 const resultDiv = document.getElementById('result');
+                
                 if (data.solution) {
                     resultDiv.innerHTML = '<h3>Solución:</h3>';
                     const solutionList = document.createElement('ul');
@@ -123,7 +153,7 @@
                     });
                     resultDiv.appendChild(solutionList);
                 } else {
-                    resultDiv.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                    resultDiv.innerHTML = `<p class="error">Error: ${data.error || 'Solución no encontrada'}</p>`;
                 }
 
                 // Calcular determinante
@@ -137,9 +167,9 @@
                 const determinantData = await determinantResponse.json();
                 const determinantResultDiv = document.getElementById('determinantResult');
                 if (determinantData.determinant !== undefined) {
-                    determinantResultDiv.innerHTML = `<h3>Determinante:</h3><p>${determinantData.determinant}</p>`;
+                    determinantResultDiv.innerHTML = `<h3>Determinante:</h3><p>${determinantData.determinant.toFixed(2)}</p>`;
                 } else {
-                    determinantResultDiv.innerHTML = `<p class="error">Error: ${determinantData.error}</p>`;
+                    determinantResultDiv.innerHTML = `<p class="error">Error: ${determinantData.error || 'No se pudo calcular el determinante'}</p>`;
                 }
 
                 // Calcular matriz de cofactores
@@ -155,7 +185,7 @@
                 if (cofactorsData.cofactors) {
                     cofactorsResultDiv.innerHTML = `<h3>Matriz de Cofactores:</h3>${formatMatrixAsTable(cofactorsData.cofactors)}`;
                 } else {
-                    cofactorsResultDiv.innerHTML = `<p class="error">Error: ${cofactorsData.error}</p>`;
+                    cofactorsResultDiv.innerHTML = `<p class="error">Error: ${cofactorsData.error || 'No se pudo calcular la matriz de cofactores'}</p>`;
                 }
 
                 // Calcular matriz adjunta
@@ -171,7 +201,7 @@
                 if (adjointData.adjoint) {
                     adjointResultDiv.innerHTML = `<h3>Matriz Adjunta:</h3>${formatMatrixAsTable(adjointData.adjoint)}`;
                 } else {
-                    adjointResultDiv.innerHTML = `<p class="error">Error: ${adjointData.error}</p>`;
+                    adjointResultDiv.innerHTML = `<p class="error">Error: ${adjointData.error || 'No se pudo calcular la matriz adjunta'}</p>`;
                 }
 
                 // Generar matriz de identidad
@@ -187,7 +217,7 @@
                 if (identityData.identityMatrix) {
                     identityResultDiv.innerHTML = `<h3>Matriz de Identidad:</h3>${formatIdentityMatrix(identityData.identityMatrix)}`;
                 } else {
-                    identityResultDiv.innerHTML = `<p class="error">Error: ${identityData.error}</p>`;
+                    identityResultDiv.innerHTML = `<p class="error">Error: ${identityData.error || 'No se pudo generar la matriz de identidad'}</p>`;
                 }
 
                 // Calcular matriz inversa
@@ -203,11 +233,15 @@
                 if (inverseData.inverse) {
                     inverseResultDiv.innerHTML = `<h3>Matriz Inversa:</h3>${formatMatrixAsTable(inverseData.inverse)}`;
                 } else {
-                    inverseResultDiv.innerHTML = `<p class="error">Error: ${inverseData.error}</p>`;
+                    inverseResultDiv.innerHTML = `<p class="error">Error: ${inverseData.error || 'No se pudo calcular la matriz inversa'}</p>`;
                 }
+
             } catch (error) {
                 console.error('Error:', error);
-                document.getElementById('result').innerHTML = '<p class="error">Hubo un error al procesar la solicitud.</p>';
+                document.getElementById('result').innerHTML = 
+                    `<p class="error">Error: ${error.message || 'Hubo un error al procesar la solicitud'}</p>`;
+            } finally {
+                document.getElementById('loading').innerHTML = '';
             }
         });
     </script>
